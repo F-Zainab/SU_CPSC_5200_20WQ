@@ -86,9 +86,7 @@ namespace restapi.Controllers
             {
                 return StatusCode(409, new InvalidStateError() { });
             }
-
             repository.Delete(id);
-
             return Ok();
         }
 
@@ -146,6 +144,77 @@ namespace restapi.Controllers
             }
         }
 
+        /********************Replace (POST) a complete line item**************************/
+
+        [HttpPost("{id:guid}/replaceline/{lid:guid}")]
+        [Produces(ContentTypes.TimesheetLine)]
+        [ProducesResponseType(typeof(TimecardLine), 200)]
+        [ProducesResponseType(404)]
+        [ProducesResponseType(typeof(InvalidStateError), 409)]
+        public IActionResult ReplaceLine(Guid id, Guid lid, [FromBody] DocumentLine documentLine)
+        {
+            logger.LogInformation($"Updating the line of timesheet {id}");
+            
+            Timecard timecard = repository.Find(id);
+
+            if (timecard != null)
+            {
+                if (timecard.Status != TimecardStatus.Draft)
+                {
+                    return StatusCode(409, new InvalidStateError() { });
+                }
+
+                if(timecard.HasLine(lid) == false)
+                {
+                    return NotFound();
+                }
+                var annotatedLine = timecard.ReplaceLine(lid, documentLine);
+
+                repository.Update(timecard);
+
+                return Ok(annotatedLine);
+            }
+            else
+            {
+                return NotFound();
+            }
+
+        }
+
+        /*******Update (PATCH) a line item**************************/
+        [HttpPatch("{id:guid}/updateline/{lid:guid}")]
+        [Produces(ContentTypes.TimesheetLine)]
+        [ProducesResponseType(typeof(IEnumerable<TimecardLine>), 200)]
+        [ProducesResponseType(404)]
+        [ProducesResponseType(typeof(InvalidStateError), 409)]
+        public IActionResult UpdateLine(Guid id, Guid lid, [FromBody]DocumentLine documentLine)
+        {
+            logger.LogInformation($"Updating the items in line of timesheet {id}");
+
+            Timecard timecard = repository.Find(id);
+
+            if (timecard != null)
+            {
+                if (timecard.Status != TimecardStatus.Draft)
+                {
+                    return StatusCode(409, new InvalidStateError() { });
+                }
+                if (timecard.HasLine(lid) == false)
+                {
+                    return NotFound();
+                }
+
+                var annotatedLine = timecard.UpdateLineItem(lid, documentLine);
+                repository.Update(timecard);
+
+                return Ok(annotatedLine);
+            }
+            else
+            {
+                return NotFound();
+            }
+        }
+
         [HttpGet("{id:guid}/transitions")]
         [Produces(ContentTypes.Transitions)]
         [ProducesResponseType(typeof(IEnumerable<Transition>), 200)]
@@ -189,16 +258,20 @@ namespace restapi.Controllers
                 {
                     return StatusCode(409, new EmptyTimecardError() { });
                 }
+                /*************Verify that timecard person is consistent throughout the timecard's lifetime*******/
+                if (timecard.Employee == submittal.Submitter)
+                {
+                    var transition = new Transition(submittal, TimecardStatus.Submitted);
 
-                var transition = new Transition(submittal, TimecardStatus.Submitted);
+                    logger.LogInformation($"Adding submittal {transition}");
 
-                logger.LogInformation($"Adding submittal {transition}");
+                    timecard.Transitions.Add(transition);
 
-                timecard.Transitions.Add(transition);
+                    repository.Update(timecard);
 
-                repository.Update(timecard);
-
-                return Ok(transition);
+                    return Ok(transition);
+                }
+                return StatusCode(403, new MissingTransitionError() { });
             }
             else
             {
@@ -393,16 +466,19 @@ namespace restapi.Controllers
                 {
                     return StatusCode(409, new InvalidStateError() { });
                 }
+                /******Verify that timecard approver is not timecard person***************/
+                if (timecard.Employee != approval.Approver)
+                {
+                    var transition = new Transition(approval, TimecardStatus.Approved);
 
-                var transition = new Transition(approval, TimecardStatus.Approved);
+                    logger.LogInformation($"Adding approval transition {transition}");
 
-                logger.LogInformation($"Adding approval transition {transition}");
+                    timecard.Transitions.Add(transition);
 
-                timecard.Transitions.Add(transition);
-
-                repository.Update(timecard);
-
-                return Ok(transition);
+                    repository.Update(timecard);
+                    return Ok(transition);
+                }
+                return StatusCode(403, new MissingTransitionError() { });
             }
             else
             {
