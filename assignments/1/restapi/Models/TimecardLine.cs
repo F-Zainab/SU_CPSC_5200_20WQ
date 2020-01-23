@@ -91,7 +91,7 @@ namespace restapi.Models
 
         public string WorkDate { get => workDate.ToString("yyyy-MM-dd"); }
 
-        [JsonProperty("id")]
+        [JsonProperty("lid")]
         public Guid UniqueIdentifier { get; set; }
 
         public string PeriodFrom => periodFrom.ToString("yyyy-MM-dd");
