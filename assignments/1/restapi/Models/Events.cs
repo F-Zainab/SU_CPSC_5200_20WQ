@@ -9,6 +9,8 @@ namespace restapi.Models
         [JsonIgnore]
         public int Person { get; set; }
 
+        public string Item { get; set; }
+
         public override string ToString()
         {
             return PublicJsonSerializer.SerializeObjectIndented(this);
@@ -56,6 +58,17 @@ namespace restapi.Models
         public int Rejecter { get => Person; set { Person = value; } }
 
         public string Reason { get; set; }
+
+        public override string ToString()
+        {
+            return PublicJsonSerializer.SerializeObjectIndented(this);
+        }
+    }
+    
+    public class UpdateItem : Event
+    {
+        [BsonIgnore]
+        public int item { get => item; set { item = value; } }
 
         public override string ToString()
         {
