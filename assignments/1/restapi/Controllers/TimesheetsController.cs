@@ -478,7 +478,7 @@ namespace restapi.Controllers
                     repository.Update(timecard);
                     return Ok(transition);
                 }
-                return StatusCode(403, new MissingTransitionError() { });
+                return StatusCode(403, new InvalidApproverError() { });
             }
             else
             {
