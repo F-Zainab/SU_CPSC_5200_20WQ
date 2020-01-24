@@ -86,8 +86,14 @@ namespace restapi.Controllers
             {
                 return StatusCode(409, new InvalidStateError() { });
             }
-            repository.Delete(id);
-            return Ok();
+            /************************************/
+            var deletePerson = new DocumentPerson();
+            if (timecard.Employee == deletePerson.Id)
+            {
+                repository.Delete(id);
+                return Ok();
+            }
+            return StatusCode(403, new InvalidAccessError());
         }
 
         [HttpGet("{id:guid}/lines")]
@@ -271,7 +277,7 @@ namespace restapi.Controllers
 
                     return Ok(transition);
                 }
-                return StatusCode(403, new MissingTransitionError() { });
+                return StatusCode(403, new InvalidAccessError() { }); 
             }
             else
             {
@@ -398,16 +404,19 @@ namespace restapi.Controllers
                 {
                     return StatusCode(409, new InvalidStateError() { });
                 }
+                if(timecard.Employee != rejection.Rejecter)
+                {
+                    var transition = new Transition(rejection, TimecardStatus.Rejected);
 
-                var transition = new Transition(rejection, TimecardStatus.Rejected);
+                    logger.LogInformation($"Adding rejection transition {transition}");
 
-                logger.LogInformation($"Adding rejection transition {transition}");
+                    timecard.Transitions.Add(transition);
 
-                timecard.Transitions.Add(transition);
+                    repository.Update(timecard);
 
-                repository.Update(timecard);
-
-                return Ok(transition);
+                    return Ok(transition);
+                }
+                return StatusCode(403, new InvalidAccessError());
             }
             else
             {
@@ -478,7 +487,7 @@ namespace restapi.Controllers
                     repository.Update(timecard);
                     return Ok(transition);
                 }
-                return StatusCode(403, new InvalidApproverError() { });
+                return StatusCode(403, new InvalidAccessError() { });
             }
             else
             {
